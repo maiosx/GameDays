@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GameDays</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #0d0d12;
+    --surface: #13131a;
+    --surface2: #1a1a24;
+    --border: #2a2a3a;
+    --accent-red: #e05a5a;
+    --accent-blue: #5a9ee0;
+    --accent-green: #5ae09a;
+    --accent-yellow: #e0c25a;
+    --accent-purple: #a05ae0;
+    --text: #e8e8f0;
+    --muted: #6a6a80;
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-display: 'Syne', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    height: 100vh;
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    overflow: hidden;
+    user-select: none;
+    transition: grid-template-columns 0.25s cubic-bezier(0.4,0,0.2,1);
+  }
+  body.sidebar-collapsed { grid-template-columns: 0px 1fr; }
+
+  /* SIDEBAR */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: opacity 0.2s, visibility 0.25s;
+    min-width: 0;
+  }
+  body.sidebar-collapsed .sidebar { opacity: 0; visibility: hidden; pointer-events: none; }
+
+  /* Toggle button — lives in main header */
+  .sidebar-toggle {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 13px;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .sidebar-toggle:hover { color: var(--text); border-color: var(--muted); }
+
+  .sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo { font-family: var(--font-display); font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo span { color: var(--accent-yellow); }
+  .sidebar-subtitle { font-size: 10px; color: var(--muted); margin-top: 3px; text-transform: uppercase; letter-spacing: 1px; }
+
+  .data-path-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--muted);
+    font-size: 9px;
+    font-family: var(--font-mono);
+    padding: 4px 7px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .data-path-btn:hover { color: var(--text); border-color: var(--muted); }
+
+  .games-list { flex: 1; overflow-y: auto; padding: 8px 0; }
+  .games-list::-webkit-scrollbar { width: 3px; }
+  .games-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .game-item {
+    padding: 11px 16px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.12s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .game-item:hover { background: var(--surface2); }
+  .game-item.active { border-left-color: var(--accent-yellow); background: var(--surface2); }
+  .game-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .game-item-info { flex: 1; min-width: 0; }
+  .game-item-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .game-item-count { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .game-streak { font-size: 10px; font-weight: 700; color: var(--muted); }
+  .game-streak.active-streak { color: var(--accent-yellow); }
+
+  .sidebar-footer { padding: 14px 16px; border-top: 1px solid var(--border); }
+  .stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+  .stat-val { font-size: 20px; font-weight: 700; font-family: var(--font-display); color: var(--accent-yellow); }
+  .stat-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+  /* MAIN */
+  .main { display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; }
+
+  .main-header {
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .view-title { font-family: var(--font-display); font-size: 18px; font-weight: 700; }
+
+  .tab-buttons { display: flex; gap: 4px; }
+  .tab-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .tab-btn:hover { color: var(--text); border-color: var(--muted); }
+  .tab-btn.active { background: var(--surface2); color: var(--text); border-color: var(--accent-yellow); }
+
+  /* VIEW */
+  .view-area { overflow-y: auto; padding: 20px 24px; }
+  .view-area::-webkit-scrollbar { width: 3px; }
+  .view-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* GRID */
+  .grid-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .grid-game-dot { width: 12px; height: 12px; border-radius: 3px; }
+  .grid-game-title { font-family: var(--font-display); font-size: 20px; font-weight: 700; }
+  .grid-game-total { font-size: 11px; color: var(--muted); margin-left: auto; }
+
+  .heatmap-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    overflow-x: auto;
+  }
+
+  /* LOG */
+  .log-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .log-entry {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    border-left: 3px solid transparent;
+    transition: border-color 0.2s;
+    animation: slideIn 0.18s ease;
+    position: relative;
+  }
+  @keyframes slideIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+  .log-entry:hover { border-left-color: var(--accent-yellow); }
+  .log-entry:hover .delete-btn { opacity: 1; }
+
+  .log-entry-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; padding-right: 28px; }
+  .log-game-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .log-date { font-size: 10px; color: var(--muted); margin-left: auto; }
+  .log-note { font-size: 12px; line-height: 1.6; color: #c8c8d8; user-select: text; }
+
+  .delete-btn {
+    position: absolute;
+    top: 10px; right: 10px;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    color: var(--muted);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    padding: 3px 7px;
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.15s;
+    line-height: 1;
+  }
+  .delete-btn:hover { background: #e05a5a18; border-color: var(--accent-red); color: var(--accent-red); }
+
+  /* ALL */
+  .all-grid { display: flex; flex-direction: column; gap: 16px; }
+  .all-game-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .all-game-header { padding: 14px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s; }
+  .all-game-header:hover { background: var(--surface2); }
+  .all-game-name { font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+  .all-game-count { font-size: 10px; color: var(--muted); margin-left: auto; }
+  .all-game-mini-heatmap { padding: 12px 16px; overflow-x: auto; }
+
+  /* INPUT */
+  .input-area { border-top: 1px solid var(--border); padding: 14px 24px; background: var(--surface); }
+  .input-hint { font-size: 10px; color: var(--muted); margin-bottom: 8px; }
+  .hint-cmd { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; color: var(--accent-yellow); font-size: 10px; }
+  .input-row { display: flex; gap: 8px; align-items: center; }
+
+  .cmd-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.15s;
+    user-select: text;
+  }
+  .cmd-input:focus { border-color: var(--accent-yellow); }
+  .cmd-input::placeholder { color: var(--muted); }
+
+  .send-btn {
+    background: var(--accent-yellow);
+    border: none;
+    border-radius: 8px;
+    color: #0d0d12;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 10px 18px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .send-btn:hover { background: #f0d26a; }
+  .send-btn:active { transform: scale(0.97); }
+  .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .input-wrapper { position: relative; flex: 1; }
+
+  .autocomplete {
+    position: absolute;
+    bottom: 100%;
+    left: 0; right: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    overflow: hidden;
+    display: none;
+    z-index: 50;
+  }
+  .autocomplete.show { display: block; }
+  .autocomplete-item { padding: 8px 12px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background 0.1s; }
+  .autocomplete-item:hover, .autocomplete-item.selected { background: var(--border); }
+  .ac-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+  /* Empty */
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
+  .empty-text { font-size: 13px; line-height: 1.6; }
+  .empty-cmd { color: var(--accent-yellow); }
+
+  /* Notif */
+  .notif {
+    position: fixed;
+    top: 16px; right: 16px;
+    background: var(--surface2);
+    border: 1px solid var(--accent-green);
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-size: 12px;
+    color: var(--accent-green);
+    z-index: 200;
+    transform: translateY(-50px);
+    opacity: 0;
+    transition: all 0.25s;
+    pointer-events: none;
+  }
+  .notif.show { transform: translateY(0); opacity: 1; }
+
+  /* Tooltip */
+  .heatmap-tooltip {
+    position: fixed;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 11px;
+    pointer-events: none;
+    z-index: 100;
+    display: none;
+    max-width: 240px;
+    line-height: 1.5;
+    box-shadow: 0 4px 16px #00000060;
+  }
+  .tooltip-date { color: var(--muted); font-size: 10px; }
+  .tooltip-note { color: var(--text); margin-top: 2px; }
+
+  /* Loading */
+  .loading { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--muted); font-size: 12px; gap: 8px; }
+  .spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent-yellow); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Path popup */
+  .path-popup {
+    position: fixed;
+    bottom: 80px; left: 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 11px;
+    color: var(--muted);
+    z-index: 300;
+    max-width: 280px;
+    word-break: break-all;
+    display: none;
+    box-shadow: 0 4px 20px #00000080;
+  }
+  .path-popup.show { display: block; }
+  .path-popup strong { color: var(--text); display: block; margin-bottom: 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="sidebar-header">
+    <div>
+      <div class="logo">Game<span>Days</span></div>
+      <div class="sidebar-subtitle">progress tracker</div>
+    </div>
+    <button class="data-path-btn" onclick="togglePath()" title="Show data file location">📁</button>
+  </div>
+  <div class="games-list" id="gamesList">
+    <div class="loading"><div class="spinner"></div> Loading…</div>
+  </div>
+  <div class="sidebar-footer">
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-val" id="totalGames">0</div>
+        <div class="stat-label">Games</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="totalEntries">0</div>
+        <div class="stat-label">Sessions</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="main-header">
+    <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Toggle sidebar">☰</button>
+    <div class="view-title" id="viewTitle">All Games</div>
+    <div class="tab-buttons">
+      <button class="tab-btn active" onclick="setView('all')" id="tab-all">All</button>
+      <button class="tab-btn" onclick="setView('grid')" id="tab-grid">Grid</button>
+      <button class="tab-btn" onclick="setView('log')" id="tab-log">Log</button>
+    </div>
+  </div>
+  <div class="view-area" id="viewArea"><div class="loading"><div class="spinner"></div> Loading…</div></div>
+  <div class="input-area">
+    <div class="input-hint">Type <span class="hint-cmd">/game [title] [progress]</span> to log a session — press Enter or click LOG</div>
+    <div class="input-row">
+      <div class="input-wrapper">
+        <div class="autocomplete" id="autocomplete"></div>
+        <input class="cmd-input" id="cmdInput" placeholder="/game Red Dead Redemption II reached chapter 3..." autocomplete="off" spellcheck="false" />
+      </div>
+      <button class="send-btn" id="sendBtn" onclick="handleSubmit()">LOG →</button>
+    </div>
+  </div>
+</div>
+
+<div class="notif" id="notif"></div>
+<div class="heatmap-tooltip" id="tooltip"></div>
+<div class="path-popup" id="pathPopup"><strong>Data saved to</strong><span id="pathText"></span></div>
+
+<script>
+// ─── STATE ─────────────────────────────────────────────────────────────────
+let data = { games: {}, entries: [] };
+let currentView = 'all';
+let selectedGame = null;
+let acIndex = -1;
+let acItems = [];
+
+// ─── API ───────────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const res = await fetch(path, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined
+  });
+  return res.json();
+}
+
+async function loadData() {
+  data = await api('GET', '/api/data');
+  renderSidebar();
+  renderCurrentView();
+}
+
+async function postEntry(gameName, note) {
+  const result = await api('POST', '/api/entry', { gameName, note });
+  if (result.ok) {
+    data.entries.unshift(result.entry);
+    data.games[result.entry.gameKey] = result.game;
+  }
+  return result;
+}
+
+async function deleteEntryApi(id) {
+  const result = await api('DELETE', `/api/entry/${id}`);
+  if (result.ok) {
+    data.entries = data.entries.filter(e => e.id !== id);
+    Object.keys(data.games).forEach(k => {
+      if (!data.entries.find(e => e.gameKey === k)) {
+        if (selectedGame === k) selectedGame = null;
+        delete data.games[k];
+      }
+    });
+  }
+}
+
+// ─── HEATMAP ───────────────────────────────────────────────────────────────
+function buildHeatmapData(entries) {
+  const map = {};
+  entries.forEach(e => {
+    const d = e.date.split('T')[0];
+    if (!map[d]) map[d] = [];
+    map[d].push(e.note);
+  });
+  return map;
+}
+
+function renderHeatmap(entries, color, compact = false) {
+  const map = buildHeatmapData(entries);
+  const today = new Date();
+  const cs = compact ? 10 : 14;
+  const cg = compact ? 2 : 3;
+  const todayStr = today.toISOString().split('T')[0];
+
+  const weeks = 52;
+  const startDate = new Date(today);
+  startDate.setDate(today.getDate() - weeks * 7 + 1);
+  const sd = startDate.getDay();
+  startDate.setDate(startDate.getDate() - (sd === 0 ? 6 : sd - 1));
+
+  const cells = [];
+  let d = new Date(startDate);
+  while (d <= today) { cells.push(new Date(d)); d.setDate(d.getDate() + 1); }
+
+  const weekGroups = [];
+  let week = [];
+  const fdow = cells[0].getDay();
+  const pad = fdow === 0 ? 6 : fdow - 1;
+  for (let i = 0; i < pad; i++) week.push(null);
+  cells.forEach(c => { week.push(c); if (week.length === 7) { weekGroups.push(week); week = []; } });
+  if (week.length) weekGroups.push(week);
+
+  const monthLabels = [];
+  let lastMonth = -1;
+  weekGroups.forEach((wk, wi) => {
+    const fv = wk.find(d => d !== null);
+    if (fv) { const m = fv.getMonth(); if (m !== lastMonth) { monthLabels.push({ wi, label: fv.toLocaleString('default', { month: 'short' }) }); lastMonth = m; } }
+  });
+
+  const wrapper = document.createElement('div');
+  wrapper.style.display = 'flex';
+  wrapper.style.flexDirection = 'column';
+
+  if (!compact) {
+    const monthRow = document.createElement('div');
+    monthRow.style.cssText = `position:relative;height:14px;margin-bottom:${cg*2}px;padding-left:${24+cg}px;font-size:9px;color:var(--muted);min-width:${weekGroups.length*(cs+cg)}px;`;
+    monthLabels.forEach(ml => {
+      const span = document.createElement('span');
+      span.style.cssText = `position:absolute;left:${24+cg+ml.wi*(cs+cg)}px;top:0;`;
+      span.textContent = ml.label;
+      monthRow.appendChild(span);
+    });
+    wrapper.appendChild(monthRow);
+  }
+
+  const body = document.createElement('div');
+  body.style.cssText = `display:flex;gap:${cg}px;`;
+
+  if (!compact) {
+    const dayLabels = document.createElement('div');
+    dayLabels.style.cssText = `display:flex;flex-direction:column;gap:${cg}px;padding-top:2px;margin-right:${cg}px;`;
+    ['Mon','','Wed','','Fri','','Sun'].forEach(l => {
+      const lbl = document.createElement('div');
+      lbl.style.cssText = `font-size:9px;color:var(--muted);height:${cs}px;line-height:${cs}px;width:18px;text-align:right;`;
+      lbl.textContent = l;
+      dayLabels.appendChild(lbl);
+    });
+    body.appendChild(dayLabels);
+  }
+
+  const grid = document.createElement('div');
+  grid.style.cssText = `display:flex;gap:${cg}px;`;
+
+  weekGroups.forEach(wk => {
+    const col = document.createElement('div');
+    col.style.cssText = `display:flex;flex-direction:column;gap:${cg}px;`;
+    for (let di = 0; di < 7; di++) {
+      const cell = document.createElement('div');
+      cell.style.cssText = `width:${cs}px;height:${cs}px;border-radius:${compact?2:3}px;cursor:default;transition:transform 0.1s;`;
+      const dayCell = wk[di];
+      if (!dayCell) { cell.style.background = 'transparent'; col.appendChild(cell); continue; }
+      const dateStr = dayCell.toISOString().split('T')[0];
+      const hasEntry = map[dateStr];
+      cell.style.background = hasEntry ? color : 'var(--surface2)';
+      if (hasEntry) cell.style.opacity = String(Math.min(0.4 + hasEntry.length * 0.3, 1));
+      if (dateStr === todayStr) cell.style.boxShadow = `0 0 0 1.5px var(--text)`;
+      if (!compact) {
+        cell.style.cursor = 'pointer';
+        cell.addEventListener('mouseenter', e => {
+          const tt = document.getElementById('tooltip');
+          tt.style.display = 'block';
+          const notes = map[dateStr] || [];
+          const fmt = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+          tt.innerHTML = `<div class="tooltip-date">${fmt}</div>${notes.length ? notes.map(n=>`<div class="tooltip-note">• ${n}</div>`).join('') : '<div class="tooltip-note" style="color:var(--muted)">No sessions</div>'}`;
+          tt.style.left = (e.clientX + 14) + 'px';
+          tt.style.top = (e.clientY - 10) + 'px';
+        });
+        cell.addEventListener('mousemove', e => {
+          const tt = document.getElementById('tooltip');
+          tt.style.left = (e.clientX + 14) + 'px';
+          tt.style.top = (e.clientY - 10) + 'px';
+        });
+        cell.addEventListener('mouseleave', () => { document.getElementById('tooltip').style.display = 'none'; });
+      }
+      col.appendChild(cell);
+    }
+    grid.appendChild(col);
+  });
+
+  body.appendChild(grid);
+  wrapper.appendChild(body);
+  return wrapper;
+}
+
+// ─── VIEWS ─────────────────────────────────────────────────────────────────
+function renderAll() {
+  const area = document.getElementById('viewArea');
+  area.innerHTML = '';
+  const gameKeys = Object.keys(data.games);
+  if (!gameKeys.length) {
+    area.innerHTML = `<div class="empty-state"><div class="empty-icon">🎮</div><div class="empty-text">No games tracked yet.<br>Use <span class="empty-cmd">/game [title] [progress]</span> to log your first session.</div></div>`;
+    return;
+  }
+  const wrap = document.createElement('div');
+  wrap.className = 'all-grid';
+  const sorted = gameKeys.sort((a, b) => {
+    const ea = data.entries.find(e => e.gameKey === a);
+    const eb = data.entries.find(e => e.gameKey === b);
+    if (!ea && !eb) return 0; if (!ea) return 1; if (!eb) return -1;
+    return new Date(eb.date) - new Date(ea.date);
+  });
+  sorted.forEach(key => {
+    const g = data.games[key];
+    const entries = data.entries.filter(e => e.gameKey === key);
+    const section = document.createElement('div');
+    section.className = 'all-game-section';
+    const header = document.createElement('div');
+    header.className = 'all-game-header';
+    header.innerHTML = `<div class="game-dot" style="background:${g.color};width:10px;height:10px;border-radius:3px;flex-shrink:0;"></div><div class="all-game-name">${g.name}</div><div class="all-game-count">${entries.length} session${entries.length!==1?'s':''}</div>`;
+    header.addEventListener('click', () => { selectedGame = key; setView('grid'); });
+    section.appendChild(header);
+    const heatDiv = document.createElement('div');
+    heatDiv.className = 'all-game-mini-heatmap';
+    heatDiv.appendChild(renderHeatmap(entries, g.color, true));
+    section.appendChild(heatDiv);
+    if (entries.length) {
+      const lastDiv = document.createElement('div');
+      lastDiv.style.cssText = 'padding: 0 16px 12px; font-size: 11px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 10px;';
+      lastDiv.innerHTML = `<span style="color:var(--text)">Latest:</span> ${entries[0].note}`;
+      section.appendChild(lastDiv);
+    }
+    wrap.appendChild(section);
+  });
+  area.appendChild(wrap);
+}
+
+function renderGrid() {
+  const area = document.getElementById('viewArea');
+  area.innerHTML = '';
+  const key = selectedGame || Object.keys(data.games)[0];
+  if (!key || !data.games[key]) {
+    area.innerHTML = `<div class="empty-state"><div class="empty-icon">🗓️</div><div class="empty-text">Select a game from the sidebar to view its heatmap.</div></div>`;
+    return;
+  }
+  const g = data.games[key];
+  const entries = data.entries.filter(e => e.gameKey === key);
+
+  const header = document.createElement('div');
+  header.className = 'grid-header';
+  header.innerHTML = `<div class="game-dot grid-game-dot" style="background:${g.color}"></div><div class="grid-game-title">${g.name}</div><div class="grid-game-total">${entries.length} session${entries.length!==1?'s':''} logged</div>`;
+  area.appendChild(header);
+
+  const heatWrap = document.createElement('div');
+  heatWrap.className = 'heatmap-wrap';
+  heatWrap.appendChild(renderHeatmap(entries, g.color, false));
+  area.appendChild(heatWrap);
+
+  if (entries.length) {
+    const logHead = document.createElement('div');
+    logHead.style.cssText = 'font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;';
+    logHead.textContent = 'Session Log';
+    area.appendChild(logHead);
+    const list = document.createElement('div');
+    list.className = 'log-list';
+    entries.slice(0, 30).forEach(e => list.appendChild(makeLogEntry(e, g)));
+    area.appendChild(list);
+  }
+}
+
+function renderLog() {
+  const area = document.getElementById('viewArea');
+  area.innerHTML = '';
+  if (!data.entries.length) {
+    area.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No sessions logged yet.</div></div>`;
+    return;
+  }
+  const list = document.createElement('div');
+  list.className = 'log-list';
+  data.entries.slice(0, 200).forEach(e => {
+    const g = data.games[e.gameKey];
+    if (g) list.appendChild(makeLogEntry(e, g));
+  });
+  area.appendChild(list);
+}
+
+function makeLogEntry(e, g) {
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+  div.style.borderLeftColor = g.color + '33';
+  const d = new Date(e.date);
+  const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  div.innerHTML = `
+    <div class="log-entry-top">
+      <div class="log-game-badge" style="background:${g.color}22;color:${g.color};">${g.name}</div>
+      <div class="log-date">${dateStr} · ${timeStr}</div>
+    </div>
+    <div class="log-note">${e.note}</div>
+    <button class="delete-btn" title="Delete entry">✕</button>
+  `;
+  div.querySelector('.delete-btn').addEventListener('click', async ev => {
+    ev.stopPropagation();
+    div.style.transition = 'opacity 0.2s, transform 0.2s';
+    div.style.opacity = '0';
+    div.style.transform = 'translateX(10px)';
+    await new Promise(r => setTimeout(r, 200));
+    await deleteEntryApi(e.id);
+    renderSidebar();
+    renderCurrentView();
+  });
+  return div;
+}
+
+function renderCurrentView() {
+  if (currentView === 'all') renderAll();
+  else if (currentView === 'grid') renderGrid();
+  else renderLog();
+}
+
+function setView(v) {
+  currentView = v;
+  ['all','grid','log'].forEach(t => document.getElementById('tab-'+t).classList.toggle('active', t === v));
+  const titles = { all: 'All Games', grid: selectedGame && data.games[selectedGame] ? data.games[selectedGame].name : 'Grid', log: 'Session Log' };
+  document.getElementById('viewTitle').textContent = titles[v];
+  renderCurrentView();
+}
+
+// ─── SIDEBAR ───────────────────────────────────────────────────────────────
+function renderSidebar() {
+  const list = document.getElementById('gamesList');
+  const keys = Object.keys(data.games);
+  document.getElementById('totalGames').textContent = keys.length;
+  document.getElementById('totalEntries').textContent = data.entries.length;
+
+  if (!keys.length) {
+    list.innerHTML = `<div style="padding:16px;font-size:11px;color:var(--muted);line-height:1.8;">No games yet.<br>Try: <span style="color:var(--accent-yellow)">/game RDR2 completed Chapter III</span></div>`;
+    return;
+  }
+  list.innerHTML = '';
+  const sorted = keys.sort((a, b) => {
+    const ea = data.entries.find(e => e.gameKey === a);
+    const eb = data.entries.find(e => e.gameKey === b);
+    if (!ea && !eb) return 0; if (!ea) return 1; if (!eb) return -1;
+    return new Date(eb.date) - new Date(ea.date);
+  });
+  sorted.forEach(key => {
+    const g = data.games[key];
+    const entries = data.entries.filter(e => e.gameKey === key);
+    const today = new Date().toISOString().split('T')[0];
+    const todayEntry = entries.find(e => e.date.split('T')[0] === today);
+    let streak = 0, d2 = new Date();
+    while (true) {
+      const ds = d2.toISOString().split('T')[0];
+      if (entries.find(e => e.date.split('T')[0] === ds)) { streak++; d2.setDate(d2.getDate()-1); } else break;
+    }
+    const item = document.createElement('div');
+    item.className = 'game-item' + (selectedGame === key ? ' active' : '');
+    item.innerHTML = `
+      <div class="game-dot" style="background:${g.color}"></div>
+      <div class="game-item-info">
+        <div class="game-item-name">${g.name}</div>
+        <div class="game-item-count">${entries.length} session${entries.length!==1?'s':''}</div>
+      </div>
+      <div class="game-streak ${streak>1?'active-streak':''}">${todayEntry ? '✓' : streak > 1 ? streak+'🔥' : ''}</div>
+    `;
+    item.addEventListener('click', () => { selectedGame = key; setView('grid'); renderSidebar(); });
+    list.appendChild(item);
+  });
+}
+
+// ─── INPUT ─────────────────────────────────────────────────────────────────
+const input = document.getElementById('cmdInput');
+const ac = document.getElementById('autocomplete');
+
+input.addEventListener('input', () => {
+  const val = input.value;
+  if (!val.startsWith('/game ') || val === '/game ') { ac.classList.remove('show'); return; }
+  const query = val.slice(6).toLowerCase();
+  const matches = Object.values(data.games).filter(g => g.name.toLowerCase().includes(query));
+  if (!matches.length) { ac.classList.remove('show'); return; }
+  acItems = matches; acIndex = -1; ac.innerHTML = '';
+  matches.slice(0, 5).forEach(g => {
+    const item = document.createElement('div');
+    item.className = 'autocomplete-item';
+    item.innerHTML = `<div class="ac-dot" style="background:${g.color}"></div><span>${g.name}</span>`;
+    item.addEventListener('click', () => { input.value = '/game ' + g.name + ' '; ac.classList.remove('show'); input.focus(); });
+    ac.appendChild(item);
+  });
+  ac.classList.add('show');
+});
+
+input.addEventListener('keydown', e => {
+  if (ac.classList.contains('show')) {
+    const items = ac.querySelectorAll('.autocomplete-item');
+    if (e.key === 'ArrowDown') { e.preventDefault(); acIndex = Math.min(acIndex+1, items.length-1); items.forEach((it,i)=>it.classList.toggle('selected',i===acIndex)); return; }
+    if (e.key === 'ArrowUp') { e.preventDefault(); acIndex = Math.max(acIndex-1,-1); items.forEach((it,i)=>it.classList.toggle('selected',i===acIndex)); return; }
+    if (e.key === 'Tab' || (e.key === 'Enter' && acIndex >= 0)) { e.preventDefault(); if (acItems[acIndex]) input.value = '/game ' + acItems[acIndex].name + ' '; ac.classList.remove('show'); return; }
+    if (e.key === 'Escape') { ac.classList.remove('show'); return; }
+  }
+  if (e.key === 'Enter') handleSubmit();
+});
+
+document.addEventListener('click', e => { if (!e.target.closest('.input-wrapper')) ac.classList.remove('show'); });
+
+async function handleSubmit() {
+  const val = input.value.trim();
+  ac.classList.remove('show');
+  if (!val.startsWith('/game ')) { showNotif('⚠ Use /game [title] [progress]', '#e05a5a'); return; }
+  const rest = val.slice(6).trim();
+  if (!rest) { showNotif('⚠ Include game name and progress', '#e05a5a'); return; }
+
+  let gameName = '', note = '';
+  const gameKeys = Object.keys(data.games).sort((a,b) => data.games[b].name.length - data.games[a].name.length);
+  let matched = false;
+  for (const key of gameKeys) {
+    const name = data.games[key].name;
+    if (rest.toLowerCase().startsWith(name.toLowerCase())) { gameName = name; note = rest.slice(name.length).trim(); matched = true; break; }
+  }
+  if (!matched) {
+    const words = rest.split(' ');
+    if (words.length < 2) { showNotif('⚠ Add progress note after game name', '#e05a5a'); return; }
+    const verbs = ['reached','got','beat','finished','started','played','unlocked','completed','died','found','made','hit','achieved','failed','passed','won','lost','grinded','explored','bought','crafted'];
+    let splitAt = words.length - 1;
+    for (let i = 1; i < words.length; i++) {
+      if (verbs.includes(words[i].toLowerCase()) || (words[i][0] === words[i][0].toLowerCase() && words[i][0] !== words[i][0].toUpperCase())) { splitAt = i; break; }
+    }
+    gameName = words.slice(0, splitAt).join(' ');
+    note = words.slice(splitAt).join(' ');
+    if (!note) { note = gameName; gameName = words[0]; }
+  }
+  if (!gameName || !note) { showNotif('⚠ Try: /game Title progress note', '#e05a5a'); return; }
+
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+  const result = await postEntry(gameName, note);
+  btn.disabled = false;
+  if (!result.ok) { showNotif('⚠ Failed to save', '#e05a5a'); return; }
+  input.value = '';
+  showNotif(`✓ Logged: ${gameName}`, 'var(--accent-green)');
+  renderSidebar();
+  if (currentView === 'all') renderAll();
+  else if (currentView === 'log') renderLog();
+  else if (currentView === 'grid') renderGrid();
+}
+
+function showNotif(msg, color) {
+  const n = document.getElementById('notif');
+  n.textContent = msg; n.style.borderColor = color; n.style.color = color;
+  n.classList.add('show');
+  setTimeout(() => n.classList.remove('show'), 2200);
+}
+
+let pathVisible = false;
+async function togglePath() {
+  const popup = document.getElementById('pathPopup');
+  if (pathVisible) { popup.classList.remove('show'); pathVisible = false; return; }
+  const res = await api('GET', '/api/datapath');
+  document.getElementById('pathText').textContent = res.path;
+  popup.classList.add('show');
+  pathVisible = true;
+  setTimeout(() => { popup.classList.remove('show'); pathVisible = false; }, 5000);
+}
+
+// ─── SIDEBAR TOGGLE ────────────────────────────────────────────────────────
+function toggleSidebar() {
+  document.body.classList.toggle('sidebar-collapsed');
+}
+
+// ─── INIT ──────────────────────────────────────────────────────────────────
+loadData();
+input.focus();
+</script>
+</body>
+</html>
