@@ -1,4 +1,4 @@
-Note: A web app version of GameDays was created with Google Login for cross-device saving.
+Note: A web app version of GameDays was created with Google Sign in for cross-device saving.
 https://gamedays.lovable.app/
 
 Introduction
