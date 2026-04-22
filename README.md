@@ -1,6 +1,9 @@
 Note: A web app version of GameDays was created with Google and Apple Sign in for cross-device saving.
 https://gamedays.lovable.app/
 
+Second Note: I compiled the code into an exe and as an app for both windows and macOS so you don't have to install nodejs
+https://drive.google.com/drive/folders/1CsvUQnRe-xzZESuwc3nQvTgvGVI1VchC?usp=sharing
+
 Introduction
 
 GameDays is a game progress tracker made by Claude created using the app templates from HabitKit and JustMe. a discord style note taking app.
